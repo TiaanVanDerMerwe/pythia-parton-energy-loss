@@ -1,0 +1,13 @@
+src/__pycache__/
+
+# Compile files
+bin/
+
+# Output files
+*.csv
+*.log
+*.txt
+*.png
+*.pdf
+*.svg
+*Zone.Identifier

@@ -4,6 +4,8 @@ src/__pycache__/
 bin/
 
 # Output files
+*.out
+*.err
 *.csv
 *.log
 *.txt

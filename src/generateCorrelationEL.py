@@ -1,5 +1,5 @@
 """
-Python dihadron correlation generator with pQCD energy loss (DGLV) applied 
+Python dihadron correlation generator with pQCD energy loss (DGLV) applied
 to hard partons before hadronization using UserHooks.
 
 For a given pTHat bin, this script runs TWO passes sharing the same seed
@@ -21,9 +21,10 @@ Usage:
     python generateCorrelationEL.py <COM_energy> <num_events> <seed> <bin_index>
 """
 
-import sys
-import os
 import math
+import os
+import sys
+
 import numpy as np
 import pythia8
 
@@ -49,6 +50,7 @@ PARTON_ETA_MIN, PARTON_ETA_MAX = -2.0, 2.0
 DEBUG_MAX_EVENTS = 3
 DEBUG_MAX_PARTONS = 10
 
+
 # ── Flavour mapping ────────────────────────────
 def pdgToFlavour(pid: int):
     pid = abs(pid)
@@ -62,12 +64,13 @@ def pdgToFlavour(pid: int):
         return "gluon"
     return None
 
+
 # ── Energy-loss hook ─────────────────────────────────────────────────────────
 class EnergyLossHook(pythia8.UserHooks):
     def __init__(self, sampler: EnergyLossSampler, quench: bool = True):
         pythia8.UserHooks.__init__(self)
         self.sampler = sampler
-        self.quench  = quench
+        self.quench = quench
         self.lastEvent = []
 
     def canVetoPartonLevel(self):
@@ -92,7 +95,7 @@ class EnergyLossHook(pythia8.UserHooks):
 
             etaIn = p.eta()
 
-            mu  = float(self.sampler.mean(flavour, pTIn))
+            mu = float(self.sampler.mean(flavour, pTIn))
             sig = float(self.sampler.sigma(flavour, pTIn))
 
             if self.quench:
@@ -101,11 +104,11 @@ class EnergyLossHook(pythia8.UserHooks):
                 px = p.px() * (1.0 - eps)
                 py = p.py() * (1.0 - eps)
                 pz = p.pz()
-                m  = p.m()
-                e  = math.sqrt(px*px + py*py + pz*pz + m*m)
+                m = p.m()
+                e = math.sqrt(px * px + py * py + pz * pz + m * m)
 
                 if e <= 0.0:
-                    e  = m if m > 0.0 else 1e-3
+                    e = m if m > 0.0 else 1e-3
                     px = 0.0
                     py = 0.0
 
@@ -113,34 +116,37 @@ class EnergyLossHook(pythia8.UserHooks):
                 p.py(py)
                 p.e(e)
 
-                pTOut = math.sqrt(px*px + py*py)
+                pTOut = math.sqrt(px * px + py * py)
             else:
-                eps   = 0.0
-                px    = p.px()
-                py    = p.py()
-                pz    = p.pz()
-                m     = p.m()
-                e     = p.e()
+                eps = 0.0
+                px = p.px()
+                py = p.py()
+                pz = p.pz()
+                m = p.m()
+                e = p.e()
                 pTOut = pTIn
 
-            self.lastEvent.append({
-                "idx":     i,
-                "id":      p.id(),
-                "flavour": flavour,
-                "px":      px,
-                "py":      py,
-                "pz":      pz,
-                "e":       e,
-                "m":       m,
-                "pTIn":    pTIn,
-                "eta":     etaIn,
-                "mu":      mu,
-                "sig":     sig,
-                "eps":     eps,
-                "pT":      pTOut,
-            })
+            self.lastEvent.append(
+                {
+                    "idx": i,
+                    "id": p.id(),
+                    "flavour": flavour,
+                    "px": px,
+                    "py": py,
+                    "pz": pz,
+                    "e": e,
+                    "m": m,
+                    "pTIn": pTIn,
+                    "eta": etaIn,
+                    "mu": mu,
+                    "sig": sig,
+                    "eps": eps,
+                    "pT": pTOut,
+                }
+            )
 
         return False
+
 
 def make_filename(com, power, seed, pt_hat_min, pt_hat_max, label):
     return (
@@ -148,6 +154,7 @@ def make_filename(com, power, seed, pt_hat_min, pt_hat_max, label):
         f"dihadron_pow{int(power)}_pT{int(pt_hat_min)}to{int(pt_hat_max)}"
         f"_{label}_seed{int(seed)}.csv"
     )
+
 
 def build_pythia(com, seed, pt_min, pt_max, power, hook):
     """Construct and initialise a Pythia instance for one pass (vacuum or
@@ -196,15 +203,20 @@ def build_pythia(com, seed, pt_min, pt_max, power, hook):
 
     return pythia
 
-def run_pass(pythia, hook, com, power, seed, pt_min, pt_max, ibin, nbin, nevents, label):
+
+def run_pass(
+    pythia, hook, com, power, seed, pt_min, pt_max, ibin, nbin, nevents, label
+):
     """Run one full pass (vacuum or quenched) through the same
     trigger/associate dihadron selection as the original script, and write
     the pair-level CSV for this pass."""
 
-    fname = make_filename(com, power, seed, pt_min, 999 if pt_max < 0 else pt_max, label)
+    fname = make_filename(
+        com, power, seed, pt_min, 999 if pt_max < 0 else pt_max, label
+    )
     os.makedirs(os.path.dirname(fname), exist_ok=True)
     try:
-        out = open(fname, "w", buffering=64 * 1024 * 1024)
+        out = open(fname, "w", buffering=64 * 1024 * 1024)  # noqa: SIM115
     except OSError as e:
         print(f"Cannot open output file: {fname} ({e})", file=sys.stderr)
         return None
@@ -214,7 +226,7 @@ def run_pass(pythia, hook, com, power, seed, pt_min, pt_max, ibin, nbin, nevents
     out.write(f"# LABEL: {label}\n")
     out.write(f"# NEVENTS: {nevents}\n")
     out.write(f"# POWER: {power}\n")
-    out.write(f"# PREF: 5\n")
+    out.write("# PREF: 5\n")
     out.write(f"# PTHAT_RANGE: {pt_min} - {pt_max}\n")
     out.write(f"# QUENCH_PT_MIN: {QUENCH_PT_MIN}\n")
     out.write(f"# TRIG_PT_RANGE: {TRIG_PT_MIN} - {TRIG_PT_MAX}\n")
@@ -277,7 +289,10 @@ def run_pass(pythia, hook, com, power, seed, pt_min, pt_max, ibin, nbin, nevents
                     continue
 
                 pt, eta = assoc.pT(), assoc.eta()
-                if ASSOC_PT_MIN <= pt < ASSOC_PT_MAX and ASSOC_ETA_MIN <= eta <= ASSOC_ETA_MAX:
+                if (
+                    ASSOC_PT_MIN <= pt < ASSOC_PT_MAX
+                    and ASSOC_ETA_MIN <= eta <= ASSOC_ETA_MAX
+                ):
                     out.write(
                         f"{global_event:d},{event_weight:.6e},{i_trig:d},"
                         f"{trigger.pT():.6e},{trigger.eta():.6e},{trigger.phi():.6e},"
@@ -307,17 +322,21 @@ def run_pass(pythia, hook, com, power, seed, pt_min, pt_max, ibin, nbin, nevents
 
     return fname
 
+
 # ── Debug printer ─────────────────────────────────────────────────────────────
 def printQuenchingInfo(hook, evNum, maxPartons=DEBUG_MAX_PARTONS):
     rows = [
-        row for row in hook.lastEvent
-        if PARTON_ETA_MIN <= row["eta"] <= PARTON_ETA_MAX
+        row for row in hook.lastEvent if PARTON_ETA_MIN <= row["eta"] <= PARTON_ETA_MAX
     ]
 
-    print(f"\n=== Event {evNum} — parton quenching (|eta| cut: "
-          f"{PARTON_ETA_MIN} to {PARTON_ETA_MAX}) ===")
-    print(f"{'idx':>5}  {'id':>5}  {'flavour':>7}  {'eta':>7}  "
-          f"{'pTIn':>9}  {'pz':>9}  {'mu':>8}  {'sigma':>8}  {'eps':>8}  {'pT':>9}  {'loss%':>7}")
+    print(
+        f"\n=== Event {evNum} — parton quenching (|eta| cut: "
+        f"{PARTON_ETA_MIN} to {PARTON_ETA_MAX}) ==="
+    )
+    print(
+        f"{'idx':>5}  {'id':>5}  {'flavour':>7}  {'eta':>7}  "
+        f"{'pTIn':>9}  {'pz':>9}  {'mu':>8}  {'sigma':>8}  {'eps':>8}  {'pT':>9}  {'loss%':>7}"
+    )
     print("-" * 105)
 
     for n, row in enumerate(rows):
@@ -327,14 +346,17 @@ def printQuenchingInfo(hook, evNum, maxPartons=DEBUG_MAX_PARTONS):
 
         lossPct = 100.0 * (1.0 - row["pT"] / row["pTIn"]) if row["pTIn"] > 0 else 0.0
 
-        print(f"{row['idx']:>5}  {row['id']:>5}  {row['flavour']:>7}  {row['eta']:>7.3f}  "
-              f"{row['pTIn']:>9.3f}  {row['pz']:>9.3f}  {row['mu']:>8.4f}  {row['sig']:>8.4f}  "
-              f"{row['eps']:>8.4f}  {row['pT']:>9.3f}  {lossPct:>6.1f}%")
+        print(
+            f"{row['idx']:>5}  {row['id']:>5}  {row['flavour']:>7}  {row['eta']:>7.3f}  "
+            f"{row['pTIn']:>9.3f}  {row['pz']:>9.3f}  {row['mu']:>8.4f}  {row['sig']:>8.4f}  "
+            f"{row['eps']:>8.4f}  {row['pT']:>9.3f}  {lossPct:>6.1f}%"
+        )
 
     if not rows:
         print("  (no QCD partons within eta cut this event)")
 
     print()
+
 
 def main():
     if len(sys.argv) != 5:
@@ -386,9 +408,12 @@ def main():
             print(f"Pythia init failed for {label} pass, bin {ibin}", file=sys.stderr)
             return 1
 
-        run_pass(pythia, hook, com, power, seed, pt_min, pt_max, ibin, nbin, nevents, label)
+        run_pass(
+            pythia, hook, com, power, seed, pt_min, pt_max, ibin, nbin, nevents, label
+        )
 
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())

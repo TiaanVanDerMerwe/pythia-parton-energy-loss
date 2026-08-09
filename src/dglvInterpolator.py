@@ -1,5 +1,5 @@
 """
-Loads DGLV radiative energy-loss fraction JSON files makes a 
+Loads DGLV radiative energy-loss fraction JSON files makes a
 interpolating interface for use in other scripts.
 
 Usage:
@@ -16,12 +16,14 @@ Usage:
 
 import json
 import os
+from typing import ClassVar
+
+import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import CubicSpline
-import matplotlib.pyplot as plt
-
 
 # ── Single-flavour container ──────────────────────────────────────────────────
+
 
 class DGLVTable:
     """
@@ -29,7 +31,7 @@ class DGLVTable:
     for a single parton flavour.
     """
 
-    def __init__(self, pT: np.ndarray, eps: np.ndarray, meta: dict = None):
+    def __init__(self, pT: np.ndarray, eps: np.ndarray, meta: dict | None = None):
         """
         Parameters
         ----------
@@ -40,12 +42,12 @@ class DGLVTable:
         if len(pT) != len(eps):
             raise ValueError("pT and eps arrays must have the same length.")
 
-        self.pT   = pT
-        self.eps  = eps
+        self.pT = pT
+        self.eps = eps
         self.meta = meta or {}
 
         # Build spline on strictly-monotonic subset (drops duplicate x values)
-        mask        = np.concatenate(([True], np.diff(pT) > 0))
+        mask = np.concatenate(([True], np.diff(pT) > 0))
         self._spline = CubicSpline(pT[mask], eps[mask], extrapolate=False)
 
     # ── Construction helpers ──────────────────────────────────────────────────
@@ -57,8 +59,8 @@ class DGLVTable:
             raw = json.load(f)
 
         values = raw["data"]["DGLV Delta E / E"]["value"]
-        pts    = np.array(values)
-        meta   = {**raw.get("meta", {}), **raw.get("parameters", {})}
+        pts = np.array(values)
+        meta = {**raw.get("meta", {}), **raw.get("parameters", {})}
         return cls(pts[:, 0], pts[:, 1], meta=meta)
 
     # ── Interpolation ─────────────────────────────────────────────────────────
@@ -84,7 +86,11 @@ class DGLVTable:
 
     @property
     def pT_min(self) -> float:
-        return float(self.pT[self.pT > 0].min()) if (self.pT > 0).any() else float(self.pT.min())
+        return (
+            float(self.pT[self.pT > 0].min())
+            if (self.pT > 0).any()
+            else float(self.pT.min())
+        )
 
     @property
     def pT_max(self) -> float:
@@ -92,11 +98,14 @@ class DGLVTable:
 
     def __repr__(self) -> str:
         flavour = self.meta.get("flavour", {}).get("type", "unknown")
-        return (f"DGLVTable(flavour={flavour!r}, "
-                f"N={len(self.pT)}, pT∈[{self.pT_min:.1f}, {self.pT_max:.1f}] GeV)")
+        return (
+            f"DGLVTable(flavour={flavour!r}, "
+            f"N={len(self.pT)}, pT∈[{self.pT_min:.1f}, {self.pT_max:.1f}] GeV)"
+        )
 
 
 # ── Multi-flavour manager ─────────────────────────────────────────────────────
+
 
 class DGLVInterpolator:
     """
@@ -110,21 +119,21 @@ class DGLVInterpolator:
         charm  : 0.25-5.-charm.json
     """
 
-    DEFAULT_FILENAMES = {
+    DEFAULT_FILENAMES: ClassVar[dict[str, str]] = {
         "bottom": "0.25-5.-bottom.json",
-        "gluon":  "0.25-5.-gluons.json",
-        "light":  "0.25-5.-light.json",
-        "charm":  "0.25-5.-charm.json",
+        "gluon": "0.25-5.-gluons.json",
+        "light": "0.25-5.-light.json",
+        "charm": "0.25-5.-charm.json",
     }
 
-    COLOURS = {
+    COLOURS: ClassVar[dict[str, str]] = {
         "bottom": "#e6194b",
-        "gluon":  "#3cb44b",
-        "light":  "#4363d8",
-        "charm":  "#f58231",
+        "gluon": "#3cb44b",
+        "light": "#4363d8",
+        "charm": "#f58231",
     }
 
-    def __init__(self, data_dir: str, filenames: dict = None):
+    def __init__(self, data_dir: str, filenames: dict | None = None):
         """
         Parameters
         ----------
@@ -132,7 +141,7 @@ class DGLVInterpolator:
         filenames : optional dict mapping flavour name → filename,
                     overrides DEFAULT_FILENAMES
         """
-        self.data_dir  = data_dir
+        self.data_dir = data_dir
         self.filenames = filenames or self.DEFAULT_FILENAMES
         self.tables: dict[str, DGLVTable] = {}
         self._load_all()
@@ -152,8 +161,9 @@ class DGLVInterpolator:
     def __getitem__(self, flavour: str) -> DGLVTable:
         """Access a DGLVTable by flavour name, e.g. eloss['charm']."""
         if flavour not in self.tables:
-            raise KeyError(f"Unknown flavour {flavour!r}. "
-                           f"Available: {list(self.tables)}")
+            raise KeyError(
+                f"Unknown flavour {flavour!r}. Available: {list(self.tables)}"
+            )
         return self.tables[flavour]
 
     @property
@@ -162,11 +172,13 @@ class DGLVInterpolator:
 
     # ── Plotting ──────────────────────────────────────────────────────────────
 
-    def plot(self,
-             pT_range: tuple = (5, 100),
-             n_points: int = 500,
-             show_data: bool = True,
-             ax=None) -> plt.Axes:
+    def plot(
+        self,
+        pT_range: tuple = (5, 100),
+        n_points: int = 500,
+        show_data: bool = True,
+        ax=None,
+    ) -> plt.Axes:
         """
         Plot all four interpolated curves on a single axis.
 
@@ -183,15 +195,13 @@ class DGLVInterpolator:
         pT_plot = np.linspace(*pT_range, n_points)
 
         for flavour, table in self.tables.items():
-            colour  = self.COLOURS.get(flavour, None)
-            y_plot  = table(pT_plot)
+            colour = self.COLOURS.get(flavour, None)
+            y_plot = table(pT_plot)
 
-            ax.plot(pT_plot, y_plot, color=colour, lw=2,
-                    label=flavour.capitalize())
+            ax.plot(pT_plot, y_plot, color=colour, lw=2, label=flavour.capitalize())
 
             if show_data:
-                ax.scatter(table.pT, table.eps, color=colour,
-                           s=25, zorder=5, alpha=0.8)
+                ax.scatter(table.pT, table.eps, color=colour, s=25, zorder=5, alpha=0.8)
 
         ax.set_xlabel(r"$p_T$ (GeV)", fontsize=13)
         ax.set_ylabel(r"$\Delta E / E$", fontsize=13)
@@ -224,6 +234,8 @@ if __name__ == "__main__":
 
     ax = eloss.plot()
     plt.tight_layout()
-    plt.savefig(os.path.join("plots","energyloss", "energy_loss_fractions.png"), dpi=150)
+    plt.savefig(
+        os.path.join("plots", "energyloss", "energy_loss_fractions.png"), dpi=150
+    )
     plt.show()
     print("Plot saved to energy_loss_fractions.png")

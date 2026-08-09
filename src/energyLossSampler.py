@@ -5,7 +5,7 @@ Builds a per-parton Gaussian energy-loss sampler on top of DGLVInterpolator.
 
 For a parton of flavour f and transverse momentum pT, the DGLV table gives
 the mean energy-loss fraction μ = ΔE/E(f, pT).  A Gaussian centred on μ with
-width σ(μ, pT) is constructed, and one sample ε ∈ [0, 1] is drawn from it.
+width sigma(μ, pT) is constructed, and one sample ε ∈ [0, 1] is drawn from it.
 The parton pT is then rescaled as  pT_final = (1 - ε) · pT.
 
 Usage
@@ -25,15 +25,15 @@ Usage
     pT_q = sampler.quench("light", pT=22.0)
 """
 
-import numpy as np
 import matplotlib.pyplot as plt
-from dglvInterpolator import DGLVInterpolator
+import numpy as np
 
+from dglvInterpolator import DGLVInterpolator
 
 # ── Width strategies (placeholder + built-in options) ────────────────────────
 
-def sigma(mu: float | np.ndarray,
-                      pT: float | np.ndarray) -> float | np.ndarray:
+
+def sigma(mu: float | np.ndarray, pT: float | np.ndarray) -> float | np.ndarray:
     """
     PLACEHOLDER — replace with a physically motivated prescription.
 
@@ -51,7 +51,9 @@ def sigma(mu: float | np.ndarray,
     """
     return np.sqrt(mu / pT)
 
+
 # ── Main sampler class ────────────────────────────────────────────────────────
+
 
 class EnergyLossSampler:
     """
@@ -71,30 +73,29 @@ class EnergyLossSampler:
                  (e.g. np.random.default_rng(seed=42))
     """
 
-    def __init__(self,
-                 data_dir:  str,
-                 filenames: dict = None,
-                 rng: np.random.Generator = None):
+    def __init__(
+        self,
+        data_dir: str,
+        filenames: dict | None = None,
+        rng: np.random.Generator = None,
+    ):
 
         self.interpolator = DGLVInterpolator(data_dir, filenames=filenames)
-        self.sigma_fn     = sigma
-        self.rng          = rng or np.random.default_rng()
+        self.sigma_fn = sigma
+        self.rng = rng or np.random.default_rng()
 
     # ── Core sampling ─────────────────────────────────────────────────────────
 
-    def mean(self, flavour: str,
-             pT: float | np.ndarray) -> float | np.ndarray:
+    def mean(self, flavour: str, pT: float | np.ndarray) -> float | np.ndarray:
         """Return μ = ΔE/E for a given flavour and pT."""
         return self.interpolator(flavour, pT)
 
-    def sigma(self, flavour: str,
-              pT: float | np.ndarray) -> float | np.ndarray:
+    def sigma(self, flavour: str, pT: float | np.ndarray) -> float | np.ndarray:
         """Return σ for a given flavour and pT, via the pluggable sigma_fn."""
         mu = self.mean(flavour, pT)
         return self.sigma_fn(mu, pT)
 
-    def sample(self, flavour: str,
-               pT: float | np.ndarray) -> float | np.ndarray:
+    def sample(self, flavour: str, pT: float | np.ndarray) -> float | np.ndarray:
         """
         Draw one ε per parton from N(μ, σ²), clipped to [0, 1].
 
@@ -107,14 +108,13 @@ class EnergyLossSampler:
         -------
         ε : sampled energy-loss fraction, same shape as pT
         """
-        mu  = self.mean(flavour, pT)
+        mu = self.mean(flavour, pT)
         sig = self.sigma_fn(mu, pT)
 
         eps = self.rng.normal(loc=mu, scale=sig)
         return np.clip(eps, 0.0, 1.0)
 
-    def quench(self, flavour: str,
-               pT: float | np.ndarray) -> float | np.ndarray:
+    def quench(self, flavour: str, pT: float | np.ndarray) -> float | np.ndarray:
         """
         Sample ε and return the rescaled pT:  pT_quenched = (1 - ε) · pT.
         """
@@ -123,12 +123,14 @@ class EnergyLossSampler:
 
     # ── Diagnostics / visualisation ───────────────────────────────────────────
 
-    def plot_distribution(self,
-                          flavour: str,
-                          pT: float,
-                          n_bins: int = 60,
-                          n_samples: int = 100_000,
-                          ax=None) -> plt.Axes:
+    def plot_distribution(
+        self,
+        flavour: str,
+        pT: float,
+        n_bins: int = 60,
+        n_samples: int = 100_000,
+        ax=None,
+    ) -> plt.Axes:
         """
         Plot the ε distribution for a single (flavour, pT) point by
         drawing n_samples from the Gaussian and overlaying the theoretical PDF.
@@ -144,20 +146,29 @@ class EnergyLossSampler:
         if ax is None:
             _, ax = plt.subplots(figsize=(7, 4))
 
-        mu  = float(self.mean(flavour, pT))
+        mu = float(self.mean(flavour, pT))
         sig = float(self.sigma_fn(mu, pT))
 
         # Draw samples
         samples = self.sample(flavour, np.full(n_samples, pT))
 
         # Histogram
-        ax.hist(samples, bins=n_bins, density=True,
-                alpha=0.5, color="steelblue", label="Sampled ε")
+        ax.hist(
+            samples,
+            bins=n_bins,
+            density=True,
+            alpha=0.5,
+            color="steelblue",
+            label="Sampled ε",
+        )
 
         # Theoretical Gaussian PDF (unclipped, for reference)
-        eps_range = np.linspace(0,1, 400)
-        pdf = (1.0 / (sig * np.sqrt(2 * np.pi))
-               * np.exp(-0.5 * ((eps_range - mu) / sig) ** 2))
+        eps_range = np.linspace(0, 1, 400)
+        pdf = (
+            1.0
+            / (sig * np.sqrt(2 * np.pi))
+            * np.exp(-0.5 * ((eps_range - mu) / sig) ** 2)
+        )
         ax.plot(eps_range, pdf, "r-", lw=2, label=r"$\mathcal{N}(\mu,\sigma^2)$ PDF")
 
         ax.axvline(mu, color="k", ls="--", lw=1.2, label=rf"$\mu={mu:.4f}$")
@@ -176,10 +187,9 @@ class EnergyLossSampler:
 
         return ax
 
-    def plot_mean_and_sigma(self,
-                            pT_range: tuple = (5, 100),
-                            n_points: int = 300,
-                            ax=None) -> plt.Axes:
+    def plot_mean_and_sigma(
+        self, pT_range: tuple = (5, 100), n_points: int = 300, ax=None
+    ) -> plt.Axes:
         """
         Plot μ(pT) with ±σ bands for all four flavours.
         """
@@ -190,15 +200,18 @@ class EnergyLossSampler:
         colours = DGLVInterpolator.COLOURS
 
         for flavour in self.interpolator.flavours:
-            mu  = self.mean(flavour, pT_arr)
+            mu = self.mean(flavour, pT_arr)
             sig = self.sigma_fn(mu, pT_arr)
-            c   = colours.get(flavour)
+            c = colours.get(flavour)
 
             ax.plot(pT_arr, mu, color=c, lw=2, label=flavour.capitalize())
-            ax.fill_between(pT_arr,
-                            np.clip(mu - sig, 0, 1),
-                            np.clip(mu + sig, 0, 1),
-                            color=c, alpha=0.15)
+            ax.fill_between(
+                pT_arr,
+                np.clip(mu - sig, 0, 1),
+                np.clip(mu + sig, 0, 1),
+                color=c,
+                alpha=0.15,
+            )
 
         ax.set_xlabel(r"$p_T$ (GeV)", fontsize=13)
         ax.set_ylabel(r"$\varepsilon = \Delta E / E$", fontsize=13)
@@ -229,9 +242,11 @@ class EnergyLossSampler:
         self.sigma_fn = sigma_fn
 
     def __repr__(self) -> str:
-        return (f"EnergyLossSampler("
-                f"flavours={self.interpolator.flavours}, "
-                f"sigma_fn={self.sigma_fn.__name__!r})")
+        return (
+            f"EnergyLossSampler("
+            f"flavours={self.interpolator.flavours}, "
+            f"sigma_fn={self.sigma_fn.__name__!r})"
+        )
 
 
 # ── Standalone demo ───────────────────────────────────────────────────────────
@@ -249,8 +264,8 @@ if __name__ == "__main__":
 
     # Single-parton examples
     for flavour in sampler.interpolator.flavours:
-        eps    = sampler.sample(flavour, pT=20.0)
-        pT_q   = sampler.quench(flavour, pT=20.0)
+        eps = sampler.sample(flavour, pT=20.0)
+        pT_q = sampler.quench(flavour, pT=20.0)
         print(f"  {flavour:6s}  pT=20 GeV  →  ε={eps:.4f}  pT_quenched={pT_q:.3f} GeV")
 
     print()
@@ -258,16 +273,18 @@ if __name__ == "__main__":
     # μ ± σ overview plot
     ax1 = sampler.plot_mean_and_sigma()
     plt.tight_layout()
-    plt.savefig(os.path.join("plots","energyloss", "mean_sigma_bands.png"), dpi=150)
+    plt.savefig(os.path.join("plots", "energyloss", "mean_sigma_bands.png"), dpi=150)
     plt.show()
 
     fig, axes = plt.subplots(2, 2, figsize=(12, 8))
 
-    sampler.plot_distribution("gluon",  pT=20.0, ax=axes[0, 0])
-    sampler.plot_distribution("light",  pT=20.0, ax=axes[0, 1])
-    sampler.plot_distribution("charm",  pT=20.0, ax=axes[1, 0])
+    sampler.plot_distribution("gluon", pT=20.0, ax=axes[0, 0])
+    sampler.plot_distribution("light", pT=20.0, ax=axes[0, 1])
+    sampler.plot_distribution("charm", pT=20.0, ax=axes[1, 0])
     sampler.plot_distribution("bottom", pT=20.0, ax=axes[1, 1])
 
     plt.tight_layout()
-    plt.savefig(os.path.join("plots","energyloss", "epsilon_distribution_20GeV.png"), dpi=150)
+    plt.savefig(
+        os.path.join("plots", "energyloss", "epsilon_distribution_20GeV.png"), dpi=150
+    )
     plt.show()

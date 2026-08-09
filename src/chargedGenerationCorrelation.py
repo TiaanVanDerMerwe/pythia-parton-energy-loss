@@ -13,13 +13,12 @@ Usage:
     python dihadron_generator.py <COM_energy> <num_events> <power> <seed> <bin_index>
 """
 
-import sys
-import os
 import math
+import os
+import sys
 from collections import defaultdict
 
 import pythia8
-
 
 # ── pTHat bin edges — must match run.sh ─────────────────────────────
 PT_LIMITS = [18.0, 600.0]
@@ -47,8 +46,7 @@ def make_count_filename(data_filename):
       -> pythiaData/200/cms/dihadron_pow2_pT10to20_seed1_particle_counts.txt
     """
     out = data_filename
-    if out.endswith(".csv"):
-        out = out[: -len(".csv")]
+    out = out.removesuffix(".csv")
     return out + "_particle_counts.txt"
 
 
@@ -134,7 +132,7 @@ def main():
     fname = make_filename(com, power, seed, pt_min, 999 if pt_max < 0 else pt_max)
     os.makedirs(os.path.dirname(fname), exist_ok=True)
     try:
-        out = open(fname, "w", buffering=64 * 1024 * 1024)
+        out = open(fname, "w", buffering=64 * 1024 * 1024)  # noqa: SIM115
     except OSError as e:
         print(f"Cannot open output file: {fname} ({e})", file=sys.stderr)
         return 1
@@ -205,7 +203,10 @@ def main():
                     continue
 
                 pt, eta = assoc.pT(), assoc.eta()
-                if ASSOC_PT_MIN <= pt < ASSOC_PT_MAX and ASSOC_ETA_MIN <= eta <= ASSOC_ETA_MAX:
+                if (
+                    ASSOC_PT_MIN <= pt < ASSOC_PT_MAX
+                    and ASSOC_ETA_MIN <= eta <= ASSOC_ETA_MAX
+                ):
                     out.write(
                         f"{global_event:d},{event_weight:.6e},{i_trig:d},"
                         f"{trigger.pT():.6e},{trigger.eta():.6e},{trigger.phi():.6e},"
@@ -230,9 +231,12 @@ def main():
     # ── Write particle-count file ────────────────────────────────────
     cnt_fname = make_count_filename(fname)
     try:
-        cnt_out = open(cnt_fname, "w")
+        cnt_out = open(cnt_fname, "w")  # noqa: SIM115
     except OSError as e:
-        print(f"Warning: cannot open particle-count file: {cnt_fname} ({e})", file=sys.stderr)
+        print(
+            f"Warning: cannot open particle-count file: {cnt_fname} ({e})",
+            file=sys.stderr,
+        )
     else:
         cnt_out.write(f"# Particle counts for bin {ibin} of {nbin}\n")
         cnt_out.write(f"# PTHAT_RANGE: {pt_min} - {pt_max}\n")
@@ -244,7 +248,9 @@ def main():
         cnt_out.write("#   final-state charged particles only\n")
         cnt_out.write("#\n")
         cnt_out.write("# Associate condition:\n")
-        cnt_out.write(f"#   pT in [{ASSOC_PT_MIN}, pTtrig] GeV  (dynamic upper bound)\n")
+        cnt_out.write(
+            f"#   pT in [{ASSOC_PT_MIN}, pTtrig] GeV  (dynamic upper bound)\n"
+        )
         cnt_out.write(f"#   |eta| in [{ASSOC_ETA_MIN}, {ASSOC_ETA_MAX}]\n")
         cnt_out.write("#   final-state charged particles only\n")
         cnt_out.write("#   (counted once per trigger-assoc pair)\n")
@@ -254,8 +260,10 @@ def main():
         cnt_out.write(f"=== TRIGGER particles (total: {trigger_count}) ===\n")
         cnt_out.write(f"{'particle_name':<30}{'count':>12}\n")
         cnt_out.write("-" * 44 + "\n")
-        for name, cnt in sorted_entries(trigger_particle_counts):
-            cnt_out.write(f"{name:<30}{cnt:>12}\n")
+        cnt_out.writelines(
+            f"{name:<30}{cnt:>12}\n"
+            for name, cnt in sorted_entries(trigger_particle_counts)
+        )
         cnt_out.write("\n")
 
         # ── Associate table ───────────────────────────────────────────
@@ -263,8 +271,10 @@ def main():
         cnt_out.write(f"=== ASSOCIATE particles (total: {total_assoc}) ===\n")
         cnt_out.write(f"{'particle_name':<30}{'count':>12}\n")
         cnt_out.write("-" * 44 + "\n")
-        for name, cnt in sorted_entries(assoc_particle_counts):
-            cnt_out.write(f"{name:<30}{cnt:>12}\n")
+        cnt_out.writelines(
+            f"{name:<30}{cnt:>12}\n"
+            for name, cnt in sorted_entries(assoc_particle_counts)
+        )
 
         cnt_out.close()
         print(f"  Particle counts  : {cnt_fname}")

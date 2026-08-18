@@ -277,7 +277,9 @@ if __name__ == "__main__":
     # μ ± σ overview plot
     ax1 = sampler.plot_mean_and_sigma()
     plt.tight_layout()
-    plt.savefig(os.path.join("plots", "energyloss", "mean_sigma_bands.svg"), dpi=150)
+    plt.savefig(
+        os.path.join("outputs", "plots", "energyloss", "mean_sigma_bands.svg"), dpi=150
+    )
     plt.show()
 
     fig, axes = plt.subplots(2, 2, figsize=(18, 12))
@@ -289,6 +291,9 @@ if __name__ == "__main__":
 
     plt.tight_layout()
     plt.savefig(
-        os.path.join("plots", "energyloss", "epsilon_distribution_20GeV.svg"), dpi=150
+        os.path.join(
+            "outputs", "plots", "energyloss", "epsilon_distribution_20GeV.svg"
+        ),
+        dpi=150,
     )
     plt.show()

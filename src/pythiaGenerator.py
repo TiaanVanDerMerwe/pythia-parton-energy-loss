@@ -18,7 +18,7 @@ so the quenched output can be directly compared to the vacuum baseline
 (I_AA-style ratios).
 
 Usage:
-    python generateCorrelationEL.py <COM_energy> <num_events> <seed> <bin_index>
+    python pythiaGenerator.py <COM_energy> <num_events> <seed> <bin_index>
 """
 
 import math

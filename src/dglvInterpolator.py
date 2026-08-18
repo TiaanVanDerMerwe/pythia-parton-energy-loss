@@ -236,7 +236,8 @@ if __name__ == "__main__":
     ax = eloss.plot()
     plt.tight_layout()
     plt.savefig(
-        os.path.join("plots", "energyloss", "energy_loss_fractions.svg"), dpi=150
+        os.path.join("outputs", "plots", "energyloss", "energy_loss_fractions.svg"),
+        dpi=150,
     )
     plt.show()
     print("Plot saved to energy_loss_fractions.svg")

@@ -35,6 +35,6 @@ mkdir -p pythiaData/${COM}/cms
 echo "[$BIN:$SEED] Started: $(date)"
 echo "[$BIN:$SEED] Host:    $(hostname)"
 
-python3 src/generateCorrelationEL.py ${COM} ${NEVENTS} ${SEED} ${BIN}
+python3 src/pythiaGenerator.py ${COM} ${NEVENTS} ${SEED} ${BIN}
 
 echo "[$BIN:$SEED] Ended: $(date)"

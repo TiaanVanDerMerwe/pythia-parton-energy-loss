@@ -176,7 +176,7 @@ class DGLVInterpolator:
         self,
         pT_range: tuple = (5, 100),
         n_points: int = 500,
-        show_data: bool = True,
+        show_data: bool = False,
         ax=None,
     ) -> plt.Axes:
         """
@@ -198,22 +198,23 @@ class DGLVInterpolator:
             colour = self.COLOURS.get(flavour, None)
             y_plot = table(pT_plot)
 
-            ax.plot(pT_plot, y_plot, color=colour, lw=2, label=flavour.capitalize())
+            ax.plot(pT_plot, y_plot, color=colour, lw=6, label=flavour.capitalize())
 
             if show_data:
                 ax.scatter(table.pT, table.eps, color=colour, s=25, zorder=5, alpha=0.8)
 
-        ax.set_xlabel(r"$p_T$ (GeV)", fontsize=13)
-        ax.set_ylabel(r"$\Delta E / E$", fontsize=13)
+        ax.set_xlabel(r"$p_T$ (GeV)", fontsize=20)
+        ax.set_ylabel(r"$\Delta E / E$", fontsize=20)
         ax.set_title(
             r"DGLV Radiative Energy Loss Fraction"
             "\n"
             r"$T = 0.25\,\mathrm{GeV},\; L = 5\,\mathrm{fm},\; \alpha_s = 0.3$",
-            fontsize=12,
+            fontsize=20,
         )
-        ax.legend(fontsize=11)
+        ax.legend(fontsize=18)
         ax.set_xlim(0, pT_range[1] + 5)
         ax.set_ylim(bottom=0)
+        ax.tick_params(axis="both", labelsize=20)
         ax.grid(True, alpha=0.3)
 
         return ax
@@ -235,7 +236,8 @@ if __name__ == "__main__":
     ax = eloss.plot()
     plt.tight_layout()
     plt.savefig(
-        os.path.join("plots", "energyloss", "energy_loss_fractions.png"), dpi=150
+        os.path.join("outputs", "plots", "energyloss", "energy_loss_fractions.svg"),
+        dpi=150,
     )
     plt.show()
-    print("Plot saved to energy_loss_fractions.png")
+    print("Plot saved to energy_loss_fractions.svg")

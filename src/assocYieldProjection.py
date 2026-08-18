@@ -14,7 +14,7 @@ merging, so the final histogram reflects the physically correct
 cross-section-weighted distribution rather than just counting events.
 
 Uncertainties on the Δφ projection are estimated via block jackknife:
-events are partitioned into N_JACKKNIFE_BLOCKS groups; each sample
+events are partitioned into N_JACKKNIFE_BLOCK groups; each sample
 leaves one group out, recomputes the full (ZYAM-subtracted) projection,
 and the standard jackknife formula gives the standard error per bin.
 
@@ -45,7 +45,6 @@ ETA_CUT = 1.0  # only keep pairs with |Δη| < 1
 # Number of blocks used for the block-jackknife uncertainty estimate.
 # More blocks → finer resolution but more CPU time.  50 is a good default.
 N_JACKKNIFE_BLOCK = 50
-N_JACKKNIFE_BLOCKS = [N_JACKKNIFE_BLOCK]
 
 # Which simulation variants to run, and how each maps onto filenames.
 # Each entry's filename filter is applied as a substring match against the
@@ -468,7 +467,7 @@ def compute_phi_projection_jackknife(
     zyam=True,
     zyam_range=None,
     ntrig_override=None,
-    n_blocks=N_JACKKNIFE_BLOCKS,
+    n_blocks=N_JACKKNIFE_BLOCK,
 ):
     """
     Estimate statistical uncertainties on the folded Δφ projection using
@@ -572,7 +571,11 @@ def compute_phi_projection_jackknife(
         ntrig_override=ntrig_override,
     )
 
-    eta_mask = np.abs(eta_centers) < ETA_CUT
+    # Derived from the eta_range actually histogrammed above (assumed
+    # symmetric, i.e. (-x, x)), not the module's own ETA_CUT — callers with
+    # their own eta cut (e.g. assocYieldSpectrum.py / IAA.py) should not be
+    # silently overridden by this module's constant.
+    eta_mask = np.abs(eta_centers) < eta_range[1]
 
     # project → fold
     phi_proj_full = np.mean(corr_full[eta_mask, :], axis=0)
@@ -764,8 +767,11 @@ def save_projections_to_csv(
     phi_centers,
     background_level,
     metadata,
-    save_dir="plots/Correlations",
+    save_dir="outputs/csv/Correlations",
     tag="",
+    eta_cut=ETA_CUT,
+    default_trig_pt_range=(TRIG_PT_MIN, TRIG_PT_MAX),
+    default_assoc_pt_range=(ASSOC_PT_MIN, ASSOC_PT_MAX),
 ):
     """
     Write the Δφ and Δη projections to separate CSV files.
@@ -794,6 +800,13 @@ def save_projections_to_csv(
     metadata            : dict
     save_dir            : str     — directory to write files into
     tag                 : str     — optional label appended to filenames
+    eta_cut             : float   — |Δη| cut recorded in the Δφ header. Pass
+                          the actual cut used to build phi_proj_central if a
+                          caller isn't using this module's own ETA_CUT.
+    default_trig_pt_range, default_assoc_pt_range
+                        : (lo, hi)  — fallback trigger/assoc pT ranges used
+                          for the header only if metadata lacks
+                          'CUT_TRIG_PT_RANGE' / 'CUT_ASSOC_PT_RANGE'.
 
     Returns
     -------
@@ -802,9 +815,9 @@ def save_projections_to_csv(
     """
     os.makedirs(save_dir, exist_ok=True)
 
-    trig_lo, trig_hi = metadata.get("CUT_TRIG_PT_RANGE", [TRIG_PT_MIN, TRIG_PT_MAX])
+    trig_lo, trig_hi = metadata.get("CUT_TRIG_PT_RANGE", list(default_trig_pt_range))
     assoc_lo, assoc_hi = metadata.get(
-        "CUT_ASSOC_PT_RANGE", [ASSOC_PT_MIN, ASSOC_PT_MAX]
+        "CUT_ASSOC_PT_RANGE", list(default_assoc_pt_range)
     )
 
     base = f"trig{trig_lo:.1f}-{trig_hi:.1f}_assoc{assoc_lo:.1f}-{assoc_hi:.1f}"
@@ -830,7 +843,7 @@ def save_projections_to_csv(
         "# Dihadron Δφ projection",
         f"# trigger pT : {trig_lo:.1f} – {trig_hi:.1f} GeV/c",
         f"# assoc   pT : {assoc_lo:.1f} – {assoc_hi:.1f} GeV/c",
-        f"# |Δη| cut   : {ETA_CUT}",
+        f"# |Δη| cut   : {eta_cut}",
         f"# ZYAM level : {background_level:.6e}",
         f"# ntrig      : {metadata.get('NTRIG', float('nan')):.6e}",
         f"# n_bins     : {metadata.get('n_bins', '?')}",
@@ -895,6 +908,7 @@ def plot_correlation_with_projections(
     metadata=None,
     save_path=None,
     fig_num=None,
+    eta_cut=ETA_CUT,
 ):
     """
     Main physics figure: 3D correlation surface on the left, and on the
@@ -924,6 +938,10 @@ def plot_correlation_with_projections(
         variant a distinct fig_num guarantees each run opens its own
         separate figure window instead of being drawn into (or
         clobbering) a previously-open one.
+    eta_cut               : float — |Δη| cut used only in the fallback branch
+        (phi_proj_central not supplied) to mask eta_centers, and in the
+        panel titles. Has no effect when phi_proj_central is supplied
+        directly, since then it was already applied upstream.
     """
 
     fig = plt.figure(num=fig_num, figsize=(18, 12))
@@ -1015,7 +1033,7 @@ def plot_correlation_with_projections(
         pf_centers = phi_centers_folded
         pf_err = phi_proj_err
     else:
-        eta_mask = np.abs(eta_centers) < ETA_CUT
+        eta_mask = np.abs(eta_centers) < eta_cut
         phi_projection = np.mean(correlation[eta_mask, :], axis=0)
         pf_central, pf_centers = _fold_phi(phi_projection, phi_centers)
         pf_err = None
@@ -1098,7 +1116,7 @@ def plot_correlation_with_projections(
         r"$\frac{1}{N_{\rm trig}} \frac{dN_{\rm pair}}{d\Delta\phi}$", fontsize=10
     )
     ax_phi.set_title(
-        rf"Projection onto $|\Delta\phi|$  ($|\Delta\eta|< {ETA_CUT}$)", fontsize=10
+        rf"Projection onto $|\Delta\phi|$  ($|\Delta\eta|< {eta_cut}$)", fontsize=10
     )
     ax_phi.set_xlim(-0.1, np.pi)
     ax_phi.set_xticks(phi_ticks)
@@ -1185,7 +1203,9 @@ def plot_correlation_with_projections(
     ax_rat.axhline(y=1.0, color="k", linestyle="--", linewidth=1.0, alpha=0.5)
     ax_rat.set_xlabel(r"$|\Delta\phi|$ [rad]", fontsize=10)
     ax_rat.set_ylabel(r"CMS Pythia / Pythia", fontsize=10)
-    ax_rat.set_title(r"Ratio CMS Pythia / Pythia  ($|\Delta\eta|<1$)", fontsize=10)
+    ax_rat.set_title(
+        rf"Ratio CMS Pythia / Pythia  ($|\Delta\eta|<{eta_cut}$)", fontsize=10
+    )
     ax_rat.set_xlim(-0.1, np.pi)
     ax_rat.set_ylim(0.5, 1.5)
     ax_rat.set_xticks(phi_ticks)
@@ -1259,7 +1279,19 @@ def plot_correlation_with_projections(
 # ──────────────────────────────────────────────────────────────────────────────
 # Per-variant driver
 # ──────────────────────────────────────────────────────────────────────────────
-def run_variant(variant, pow_=5, base_dir="pythiaData/2760/cms"):
+def run_variant(
+    variant,
+    pow_=5,
+    base_dir="pythiaData/2760/cms",
+    trig_pt_range=(TRIG_PT_MIN, TRIG_PT_MAX),
+    assoc_pt_range=(ASSOC_PT_MIN, ASSOC_PT_MAX),
+    eta_cut=ETA_CUT,
+    eta_bins=15,
+    phi_bins=33,
+    phi_range=(-np.pi, np.pi),
+    zyam_range=None,
+    n_jackknife_blocks=N_JACKKNIFE_BLOCK,
+):
     """
     Run the full pipeline (load → correlate → jackknife → save CSV → plot)
     for a single simulation variant, e.g. 'quenched' or 'vacuum'.
@@ -1268,17 +1300,36 @@ def run_variant(variant, pow_=5, base_dir="pythiaData/2760/cms"):
     'quenched' and 'vacuum' runs never mix bins with each other even
     though they live in the same directory.
 
+    Every analysis knob (trig_pt_range, assoc_pt_range, eta_cut, eta_bins,
+    phi_bins, phi_range, zyam_range, n_jackknife_blocks) is a parameter
+    rather than a hardcoded module constant, so callers in other scripts can
+    drive this with their own configuration instead of this module's.
+
     Parameters
     ----------
     variant  : str   — substring used to filter input filenames, and used
                        to tag output files/figures (e.g. 'quenched')
     pow_     : int    — POW exponent used in the filename pattern
     base_dir : str    — directory holding the pTHat bin CSVs
+    trig_pt_range, assoc_pt_range, eta_cut
+             : forwarded to read_and_combine_bins and the correlation /
+               jackknife calls below.
+    eta_bins, phi_bins, phi_range, zyam_range, n_jackknife_blocks
+             : forwarded to compute_dihadron_correlation /
+               run_jackknife_multiple_blocks. zyam_range defaults to
+               {'phi': (0.5, 1.5)} if not given.
 
     Returns
     -------
     fig : matplotlib Figure for this variant's plot window
     """
+    if zyam_range is None:
+        zyam_range = {"phi": (0.5, 1.5)}
+
+    tlo, thi = trig_pt_range
+    alo, ahi = assoc_pt_range
+    eta_range = (-eta_cut, eta_cut)
+
     base = f"{base_dir}/"
 
     filenames = sorted(glob.glob(f"{base}dihadron_pow{pow_}_pT*_{variant}_seed*.csv"))
@@ -1298,7 +1349,14 @@ def run_variant(variant, pow_=5, base_dir="pythiaData/2760/cms"):
     # Load and merge all pTHat bins
     # ------------------------------------------------------------------
     print("\nLoading and combining bins...")
-    data, metadata = read_and_combine_bins(filenames)
+    data, metadata = read_and_combine_bins(
+        filenames,
+        trig_pt_min=tlo,
+        trig_pt_max=thi,
+        assoc_pt_min=alo,
+        assoc_pt_max=ahi,
+        deta_max=eta_cut,
+    )
 
     print("\nCombined metadata:")
     for key, value in metadata.items():
@@ -1315,12 +1373,12 @@ def run_variant(variant, pow_=5, base_dir="pythiaData/2760/cms"):
         compute_dihadron_correlation(
             data,
             metadata,
-            eta_bins=15,
-            phi_bins=33,
-            eta_range=(-ETA_CUT, ETA_CUT),
-            phi_range=(-np.pi, np.pi),
+            eta_bins=eta_bins,
+            phi_bins=phi_bins,
+            eta_range=eta_range,
+            phi_range=phi_range,
             zyam=True,
-            zyam_range={"phi": (0.5, 1.5)},
+            zyam_range=zyam_range,
             ntrig_override=ntrig_override,
         )
     )
@@ -1358,33 +1416,34 @@ def run_variant(variant, pow_=5, base_dir="pythiaData/2760/cms"):
     # ------------------------------------------------------------------
     print(
         f"\nComputing jackknife uncertainties "
-        f"({N_JACKKNIFE_BLOCKS} blocks) on Δφ projection..."
+        f"({n_jackknife_blocks} blocks) on Δφ projection..."
     )
 
     jk_results = run_jackknife_multiple_blocks(
         data,
         metadata,
-        block_sizes=N_JACKKNIFE_BLOCKS,
-        eta_bins=15,
-        phi_bins=33,
-        eta_range=(-ETA_CUT, ETA_CUT),
-        phi_range=(-np.pi, np.pi),
+        block_sizes=[n_jackknife_blocks],
+        eta_bins=eta_bins,
+        phi_bins=phi_bins,
+        eta_range=eta_range,
+        phi_range=phi_range,
         zyam=True,
-        zyam_range={"phi": (0.5, 1.5)},
+        zyam_range=zyam_range,
         ntrig_override=ntrig_override,
     )
 
-    phi_proj_central = jk_results[N_JACKKNIFE_BLOCK]["phi_proj_central"]
-    phi_proj_err = jk_results[N_JACKKNIFE_BLOCK]["phi_proj_err"]
-    phi_centers_folded = jk_results[N_JACKKNIFE_BLOCK]["phi_centers"]
+    phi_proj_central = jk_results[n_jackknife_blocks]["phi_proj_central"]
+    phi_proj_err = jk_results[n_jackknife_blocks]["phi_proj_err"]
+    phi_centers_folded = jk_results[n_jackknife_blocks]["phi_centers"]
 
-    metadata["jackknife_n_blocks"] = N_JACKKNIFE_BLOCKS
+    metadata["jackknife_n_blocks"] = n_jackknife_blocks
 
     # ------------------------------------------------------------------
     # Save projections to CSV — each variant gets its own subdirectory
     # ------------------------------------------------------------------
     print("\nSaving projections to CSV...")
-    out_dir = f"plots/correlations/cms/{variant}"
+    csv_dir = f"outputs/csv/correlations/cms/{variant}"
+    plot_dir = f"outputs/plots/correlations/cms/{variant}"
     _, _ = save_projections_to_csv(
         phi_proj_central=phi_proj_central,
         phi_proj_err=phi_proj_err,
@@ -1394,14 +1453,17 @@ def run_variant(variant, pow_=5, base_dir="pythiaData/2760/cms"):
         phi_centers=phi_centers,
         background_level=bkg,
         metadata=metadata,
-        save_dir=out_dir,
+        save_dir=csv_dir,
         tag=f"pow{pow_}_{variant}",
+        eta_cut=eta_cut,
+        default_trig_pt_range=trig_pt_range,
+        default_assoc_pt_range=assoc_pt_range,
     )
 
     # ------------------------------------------------------------------
     # Plot — its own figure window, its own save path
     # ------------------------------------------------------------------
-    os.makedirs(out_dir, exist_ok=True)
+    os.makedirs(plot_dir, exist_ok=True)
 
     fig, _ = plot_correlation_with_projections(
         correlation,
@@ -1413,11 +1475,12 @@ def run_variant(variant, pow_=5, base_dir="pythiaData/2760/cms"):
         phi_centers_folded=phi_centers_folded,
         metadata=metadata,
         save_path=(
-            f"{out_dir}/dihadron_2d_combined_and_projections"
-            f"_{TRIG_PT_MIN:.1f}-{TRIG_PT_MAX:.1f}"
-            f"_{ASSOC_PT_MIN:.1f}-{ASSOC_PT_MAX:.1f}_{variant}.png"
+            f"{plot_dir}/dihadron_2d_combined_and_projections"
+            f"_{tlo:.1f}-{thi:.1f}"
+            f"_{alo:.1f}-{ahi:.1f}_{variant}.png"
         ),
         fig_num=f"Dihadron Correlation — {variant}",
+        eta_cut=eta_cut,
     )
 
     return fig
@@ -1428,7 +1491,7 @@ def run_variant(variant, pow_=5, base_dir="pythiaData/2760/cms"):
 # ──────────────────────────────────────────────────────────────────────────────
 def main():
     POW = 3
-    BASE_DIR = "pythiaData/2760/cms"
+    BASE_DIR = f"pythiaData/2760/cms/{TRIG_PT_MIN}-{TRIG_PT_MAX}"
 
     figs = {}
     for variant in VARIANTS:

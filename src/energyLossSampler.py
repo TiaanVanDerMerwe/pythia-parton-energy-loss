@@ -91,7 +91,7 @@ class EnergyLossSampler:
         return self.interpolator(flavour, pT)
 
     def sigma(self, flavour: str, pT: float | np.ndarray) -> float | np.ndarray:
-        """Return σ for a given flavour and pT, via the pluggable sigma_fn."""
+        """Return sigma for a given flavour and pT, via the pluggable sigma_fn."""
         mu = self.mean(flavour, pT)
         return self.sigma_fn(mu, pT)
 
@@ -144,7 +144,7 @@ class EnergyLossSampler:
         ax        : existing Axes (creates new figure if None)
         """
         if ax is None:
-            _, ax = plt.subplots(figsize=(7, 4))
+            _, ax = plt.subplots(figsize=(14, 8))
 
         mu = float(self.mean(flavour, pT))
         sig = float(self.sigma_fn(mu, pT))
@@ -169,20 +169,24 @@ class EnergyLossSampler:
             / (sig * np.sqrt(2 * np.pi))
             * np.exp(-0.5 * ((eps_range - mu) / sig) ** 2)
         )
-        ax.plot(eps_range, pdf, "r-", lw=2, label=r"$\mathcal{N}(\mu,\sigma^2)$ PDF")
+        ax.plot(
+            eps_range,
+            pdf,
+            "r-",
+            lw=4,
+            label=r"$\mathcal{N}(\mu,\sigma^2)$ PDF",
+        )
 
         ax.axvline(mu, color="k", ls="--", lw=1.2, label=rf"$\mu={mu:.4f}$")
 
-        ax.set_xlabel(r"$\varepsilon = \Delta E / E$", fontsize=12)
-        ax.set_ylabel("Probability density", fontsize=12)
+        ax.set_xlabel(r"$\varepsilon = \Delta E / E$", fontsize=20)
+        ax.set_ylabel("Probability density", fontsize=20)
         ax.set_title(
-            rf"Energy-loss distribution: {flavour}, $p_T = {pT}$ GeV"
-            "\n"
-            rf"$\mu = {mu:.4f}$, $\sigma = {sig:.4f}$  "
-            rf"[{self.sigma_fn.__name__}]",
-            fontsize=11,
+            rf"Energy-loss distribution: {flavour}, $p_T = {pT}$ GeV",
+            fontsize=20,
         )
-        ax.legend(fontsize=10)
+        ax.legend(fontsize=20)
+        ax.tick_params(axis="both", labelsize=20)
         ax.grid(True, alpha=0.3)
 
         return ax
@@ -273,10 +277,10 @@ if __name__ == "__main__":
     # μ ± σ overview plot
     ax1 = sampler.plot_mean_and_sigma()
     plt.tight_layout()
-    plt.savefig(os.path.join("plots", "energyloss", "mean_sigma_bands.png"), dpi=150)
+    plt.savefig(os.path.join("plots", "energyloss", "mean_sigma_bands.svg"), dpi=150)
     plt.show()
 
-    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+    fig, axes = plt.subplots(2, 2, figsize=(18, 12))
 
     sampler.plot_distribution("gluon", pT=20.0, ax=axes[0, 0])
     sampler.plot_distribution("light", pT=20.0, ax=axes[0, 1])
@@ -285,6 +289,6 @@ if __name__ == "__main__":
 
     plt.tight_layout()
     plt.savefig(
-        os.path.join("plots", "energyloss", "epsilon_distribution_20GeV.png"), dpi=150
+        os.path.join("plots", "energyloss", "epsilon_distribution_20GeV.svg"), dpi=150
     )
     plt.show()
